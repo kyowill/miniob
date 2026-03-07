@@ -18,23 +18,34 @@ See the Mulan PSL v2 for more details. */
 #include <thread>    // std::thread
 #include <vector>    // std::vector
 #include <cassert>   // assert
+#include <atomic>
 
 // 一个简单的链表节点
 struct Node
 {
-  int   value;
-  Node *next;
+  int  value;
+  Node* next;
 };
-
-Node *list_head(nullptr);
+/*
+Node* list_head(nullptr);
+*/
+std::atomic<Node*> list_head(nullptr);
 
 // 向 `list_head` 中添加一个值为 `val` 的 Node 节点。
 void append_node(int val)
 {
+  /*
   Node *old_head = list_head;
   Node *new_node = new Node{val, old_head};
   // TODO: 使用 compare_exchange_strong 来使这段代码线程安全。
   list_head = new_node;
+  */
+  Node* old_head = list_head.load();
+  Node *new_node = new Node{val, old_head};
+  while(!list_head.compare_exchange_strong(old_head, new_node)) {
+    old_head = list_head.load();
+    new_node->next = old_head;
+  };
 }
 
 int main()
@@ -48,7 +59,7 @@ int main()
 
   // 注意：在 `append_node` 函数是线程安全的情况下，`list_head` 中将包含 50 个 Node 节点。
   int cnt = 0;
-  for (Node *it = list_head; it != nullptr; it = it->next) {
+  for (Node *it = list_head.load(); it != nullptr; it = it->next) {
     std::cout << ' ' << it->value;
     cnt++;
   }
@@ -56,9 +67,10 @@ int main()
   assert(cnt == thread_num);
   std::cout << cnt << std::endl;
 
+  Node *it_head = list_head.load();
   Node *it;
-  while ((it = list_head)) {
-    list_head = it->next;
+  while ((it = it_head)) {
+    it_head = it->next;
     delete it;
   }
   std::cout << "passed!" << std::endl;
