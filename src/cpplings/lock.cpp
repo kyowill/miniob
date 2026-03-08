@@ -35,10 +35,12 @@ struct Node
 };
 
 Node *list_head(nullptr);
+std::mutex m;
 
 // 向 `list_head` 中添加一个 value 为 `val` 的 Node 节点。
 void append_node(int val)
 {
+  std::unique_lock<std::mutex> lock(m);
   Node *old_head = list_head;
   Node *new_node = new Node{val, old_head};
 
