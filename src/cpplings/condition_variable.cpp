@@ -31,15 +31,22 @@ std::condition_variable cv;
 // TODO: 每次调用会增加 count 的值，当count 的值达到 expect 的时候通知 waiter_thread
 void add_count_and_notify()
 {
-  std::scoped_lock slk(m);
-  count += 1;
+  //std::scoped_lock slk(m);
+  {
+    std::unique_lock<std::mutex> lock(m);
+    count += 1;
+  }
+  cv.notify_one();
 }
 
 void waiter_thread()
 {
   // TODO: 等待 count 的值达到 expect_thread_num，然后打印 count 的值
+  std::unique_lock<std::mutex> lock(m);
+  while(count != expect_thread_num) {
+    cv.wait(lock);
+  }
   std::cout << "Printing count: " << count << std::endl;
-  assert(count == expect_thread_num);
 }
 
 int main()
