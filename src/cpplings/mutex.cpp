@@ -27,19 +27,22 @@ See the Mulan PSL v2 for more details. */
 struct Node
 {
   int   value;
-  Node *next;
+  Node* next;
 };
 
-std::atomic<Node *> list_head(nullptr);
+Node * list_head(nullptr);
+std::mutex m;
 
 // 向 `list_head` 中添加一个 value 为 `val` 的 Node 节点。
 void append_node(int val)
 {
+  m.lock();
   Node *old_head = list_head;
   Node *new_node = new Node{val, old_head};
 
   // TODO: 使用 mutex 来使这段代码线程安全。
   list_head = new_node;
+  m.unlock();
 }
 
 int main()
