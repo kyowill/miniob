@@ -31,7 +31,7 @@ struct Comparator {
   }
 };
 
-TEST(skiplist_test, DISABLED_skiplist_test_basic)
+TEST(skiplist_test, skiplist_test_basic)
 {
   common::RandomGenerator rnd;
   const int N = 2000;
@@ -39,6 +39,7 @@ TEST(skiplist_test, DISABLED_skiplist_test_basic)
   std::set<Key> keys;
   Comparator cmp;
   ObSkipList<Key, Comparator> list(cmp);
+  
   for (int i = 0; i < N; i++) {
     Key key = rnd.next() % R;
     if (keys.insert(key).second) {
@@ -267,8 +268,8 @@ static void RunConcurrentInsert(int write_parallelism = 4) {
   }
 }
 
-TEST_F(InlineSkipTest, DISABLED_ConcurrentInsert2) { RunConcurrentInsert(2); }
-TEST_F(InlineSkipTest, DISABLED_ConcurrentInsert3) { RunConcurrentInsert(4); }
+TEST_F(InlineSkipTest, ConcurrentInsert2) { RunConcurrentInsert(2); }
+TEST_F(InlineSkipTest, ConcurrentInsert3) { RunConcurrentInsert(4); }
 
 int main(int argc, char **argv)
 {

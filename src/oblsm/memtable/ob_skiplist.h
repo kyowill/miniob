@@ -40,6 +40,8 @@ See the Mulan PSL v2 for more details. */
 #include "common/lang/atomic.h"
 #include "common/lang/vector.h"
 #include "common/log/log.h"
+#include <algorithm>
+
 
 namespace oceanbase {
 
@@ -307,7 +309,20 @@ typename ObSkipList<Key, ObComparator>::Node *ObSkipList<Key, ObComparator>::fin
     const Key &key, Node **prev) const
 {
   // your code here
-  return nullptr;
+  Node *x  = head_;
+  int level = get_max_height() - 1;
+  while(level >= 0) {
+    Node *next = x->next(level);
+    if (next != nullptr && compare_(next->key, key) < 0) {
+      x = next;
+    } else {
+      if(prev != nullptr) {
+        prev[level] = x;
+      }
+      level--;
+    }
+  }
+  return x->next(0);
 }
 
 template <typename Key, class ObComparator>
@@ -353,7 +368,7 @@ typename ObSkipList<Key, ObComparator>::Node *ObSkipList<Key, ObComparator>::fin
 
 template <typename Key, class ObComparator>
 ObSkipList<Key, ObComparator>::ObSkipList(ObComparator cmp)
-    : compare_(cmp), head_(new_node(0 /* any key will do */, kMaxHeight)), max_height_(1)
+    : compare_(cmp), head_(new_node(0 /* any key will do */, kMaxHeight)), max_height_(kMaxHeight)
 {
   for (int i = 0; i < kMaxHeight; i++) {
     head_->set_next(i, nullptr);
@@ -375,13 +390,62 @@ ObSkipList<Key, ObComparator>::~ObSkipList()
 }
 
 template <typename Key, class ObComparator>
-void ObSkipList<Key, ObComparator>::insert(const Key &key)
-{}
+void ObSkipList<Key, ObComparator>::insert(const Key &key){
+  Node* prev[kMaxHeight];
+  Node* target = find_greater_or_equal(key, prev);
+  if (target != nullptr && equal(target->key, key)) {
+    return;
+  }
+  int randheight = random_height();
+  Node* node = new_node(key, randheight);
+  for(int i = 0; i < randheight; i++) {
+    Node* next = prev[i]->next(i);
+    node->set_next(i, next);
+    prev[i]->set_next(i, node);
+  }
+}
 
 template <typename Key, class ObComparator>
 void ObSkipList<Key, ObComparator>::insert_concurrently(const Key &key)
 {
   // your code here
+  int randheight = random_height();
+  Node* node = new_node(key, randheight);
+  Node* prev[kMaxHeight];
+  while (true) {
+    for(int i = 0; i < kMaxHeight; i++) {
+      prev[i] = nullptr;
+    }
+    Node* target = find_greater_or_equal(key, prev);
+    if (target != nullptr && equal(target->key, key)) {
+      node->~Node();
+      free(node);
+      return;
+    } else {
+      Node* bottomPrev = prev[0];
+      Node* bottomNext = bottomPrev->next(0);
+      node->set_next(0, bottomNext);
+      if (!bottomPrev->cas_next(0, bottomNext, node)) {
+        continue;
+      }
+
+      for(int i = 1; i < randheight; i++) {
+        while(true) {
+          Node* levelPrev = prev[i];
+          Node* levelNext = levelPrev->next(i);
+          node->set_next(i, levelNext);
+          if (levelPrev->cas_next(i, levelNext, node)) {
+            break;
+          }
+          for(int i = 0; i < kMaxHeight; i++) {
+            prev[i] = nullptr;
+          }
+          find_greater_or_equal(key, prev);
+        }
+      }
+      break;
+    }
+  }
 }
 
 template <typename Key, class ObComparator>
