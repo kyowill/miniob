@@ -16,7 +16,20 @@ namespace oceanbase {
 
 RC ObBlock::decode(const string &data)
 {
-  return RC::UNIMPLEMENTED;
+  //return RC::UNIMPLEMENTED;
+  RC rc = RC::SUCCESS;
+  const char *offset_start_ptr = data.c_str() + data.length() - sizeof(uint32_t);
+  uint32_t offset_start = get_numeric<uint32_t>(offset_start_ptr);
+  const char *offset_size_ptr = data.c_str() + offset_start;
+  uint32_t offset_size = get_numeric<uint32_t>(offset_size_ptr);
+  const char *offset_cur_ptr = data.c_str() + offset_start + sizeof(uint32_t);
+  for(int i = 0; i < offset_size; i++) {
+    uint32_t offset = get_numeric<uint32_t>(offset_cur_ptr);
+    offsets_.push_back(offset);
+    offset_cur_ptr += sizeof(uint32_t);
+  }
+  data_ = std::string(data.c_str(), offset_size_ptr);
+  return rc;
 }
 
 string_view ObBlock::get_entry(uint32_t offset) const
