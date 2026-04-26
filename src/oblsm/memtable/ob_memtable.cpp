@@ -59,6 +59,7 @@ string_view ObMemTableIterator::key() const { return get_length_prefixed_string(
 string_view ObMemTableIterator::value() const
 {
   string_view key_slice = get_length_prefixed_string(iter_.key());
+  //key_slice.data() + key_slice.size() => value start
   return get_length_prefixed_string(key_slice.data() + key_slice.size());
 }
 

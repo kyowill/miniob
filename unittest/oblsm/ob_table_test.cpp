@@ -17,12 +17,12 @@ See the Mulan PSL v2 for more details. */
 
 using namespace oceanbase;
 
-TEST(table_test, DISABLED_table_test_basic)
+TEST(table_test, table_test_basic)
 {
   ObDefaultComparator comparator;
   shared_ptr<ObMemTable> table = make_shared<ObMemTable>();
   uint64_t seq = 0;
-  size_t count = 5;
+  size_t count = 500;//default 5
   for (size_t i = 0; i < count; i++) {
     string key(to_string(i));
     table->put(seq++, key, key);

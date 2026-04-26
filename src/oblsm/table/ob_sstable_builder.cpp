@@ -16,7 +16,53 @@ namespace oceanbase {
 // TODO: refactor build with mem_table/iterator logic.
 RC ObSSTableBuilder::build(shared_ptr<ObMemTable> mem_table, const std::string &file_name, uint32_t sst_id)
 {
-  return RC::UNIMPLEMENTED;
+  //init memtable iterator
+  // ObMemTableIterator iter(mem_table, mem_table.get());
+  ObLsmIterator* iter = mem_table->new_iterator();
+  file_writer_ = ObFileWriter::create_file_writer(file_name, false);
+  file_writer_->open_file();
+  iter->seek_to_first();// move to first
+  while(iter->valid()) {
+    string_view key = iter->key();
+    string_view val = iter->value();
+    if (curr_blk_first_key_.size() == 0) {
+      curr_blk_first_key_.assign(key);
+    }
+    RC rc = block_builder_.add(key, val);
+    if (rc != RC::SUCCESS) {
+      // block is full, flush to disc
+      // construct block meta
+      finish_build_block();
+      // clear first key
+      curr_blk_first_key_.clear();
+      block_builder_.add(key, val);
+    }
+    iter->next();
+  }
+  //std::cout << "size:" << block_builder_.appro_size() << std::endl;
+  // flush last block
+  if (block_builder_.appro_size() != 0) {
+    finish_build_block();
+  }
+  // flush block metas
+  // append size 
+  string metas_str;
+  put_numeric<uint32_t>(&metas_str, block_metas_.size());
+
+  for(int i = 0; i < block_metas_.size(); i++) {
+    // append ith size
+    uint32_t meta_size = 4 * sizeof(uint32_t) + block_metas_[i].first_key_.size() + block_metas_[i].last_key_.size();
+    put_numeric<uint32_t>(&metas_str, meta_size);
+    // append block meta
+    string meta_str = block_metas_[i].encode();
+    //std::cout << "build process:" << meta_str.size() << std::endl;
+    metas_str.append(meta_str);
+  }
+  // append meta start offset
+  put_numeric<uint32_t>(&metas_str, curr_offset_);
+  file_writer_->write(metas_str);
+  file_writer_->flush();
+  return RC::SUCCESS;;
 }
 
 void ObSSTableBuilder::finish_build_block()
